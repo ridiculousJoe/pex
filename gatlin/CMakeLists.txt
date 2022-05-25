@@ -30,7 +30,7 @@ if ( CMAKE_SYSTEM_NAME MATCHES "Darwin")
     llvm_map_components_to_libnames(llvm_libs bitwriter
         core ipo irreader instcombine instrumentation target linker analysis
         scalaropts support )
-    target_link_libraries( libgatlin ${llvm_libs})
+    target_link_libraries( libgatlin PRIVATE ${llvm_libs})
 else()
     target_link_libraries( libgatlin )
 endif()

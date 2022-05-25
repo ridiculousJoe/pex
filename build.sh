@@ -6,6 +6,7 @@
 function build
 {
     echo "NOTE: specify your own LLVM_DIR and LLVM_ROOT"
+    export PATH="/opt/homebrew/opt/llvm@11/bin:$PATH"
     JOBS=`getconf _NPROCESSORS_ONLN`
 #specify non default compiler here
 #        -DCMAKE_C_COMPILER=clang-10  \

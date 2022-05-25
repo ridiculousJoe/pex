@@ -4,3 +4,9 @@ build
 .scopefile
 tags
 cscope.out
+cmake-build-debug
+.vscode
+.idea
+vmlinux.bc
+my_log.txt
+log.txt
