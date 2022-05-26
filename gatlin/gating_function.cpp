@@ -40,6 +40,7 @@ void GatingCap::load_cap_func_list(std::string &file) {
     }
     return;
   }
+  // load cap.func into cap_func_name2cap_arg_pos[name] = pos
   std::string line;
   while (std::getline(input, line)) {
     std::size_t found = line.find(" ");
@@ -62,6 +63,9 @@ bool GatingCap::is_builtin_gatlin_function(const std::string &str) {
   return false;
 }
 
+/*
+ * see pex paper 6.2 permission check wrapper detection
+ */
 GatingCap::GatingCap(Module &module, std::string &capfile)
     : GatingFunctionBase(module) {
   errs() << "Gating Function Type: capability\n";
@@ -72,6 +76,7 @@ GatingCap::GatingCap(Module &module, std::string &capfile)
     Function *func = dyn_cast<Function>(fi);
     auto fname = std::string(func->getName());
 
+    // add cap_arg_pos (cap_func_name2cap_arg_pos[fname]) to chk_func_cap_position[func], where func is a Function* (pointer to a function definition)
     if (cap_func_name2cap_arg_pos.find(fname) !=
         cap_func_name2cap_arg_pos.end()) {
       chk_func_cap_position[func] = cap_func_name2cap_arg_pos[fname];
@@ -85,6 +90,7 @@ GatingCap::GatingCap(Module &module, std::string &capfile)
   // functions that will be used for discovery next time
   FunctionData pass_data_next;
 
+  // copy chk_func_cap_position to pass_data
   for (auto fpair : chk_func_cap_position)
     pass_data[fpair.first] = fpair.second;
 
@@ -93,6 +99,7 @@ GatingCap::GatingCap(Module &module, std::string &capfile)
    * discover inner permission check functions and add them all as basic
    * permission check functions
    */
+  // refer to forward call graph slicing
   for (auto fpair : pass_data) {
     Function *f = fpair.first;
     int cap_pos = fpair.second;
@@ -107,15 +114,18 @@ GatingCap::GatingCap(Module &module, std::string &capfile)
           continue;
         // we are expecting a direct call
         Function *child = get_callee_function_direct(ci);
+        // filter out indirect calls
         if (!child)
           continue;
         auto fname = std::string(child->getName());
         // dont bother if this belongs to skip function
+          // filter out direct calls that are skip funcs or kernel api
         if (skip_funcs->exists_ignore_dot_number(fname) ||
             kernel_api->exists_ignore_dot_number(fname))
           continue;
 
         // for each of the function argument
+        // if child call uses parent's cap param, set i (child's cap_pos) to pass_data_next[child], where child is a Function*
         for (unsigned int i = 0; i < ci->getNumArgOperands(); ++i) {
           Value *capv = ci->getArgOperand(i);
           int pos = use_parent_func_arg(capv, f);
@@ -128,6 +138,7 @@ GatingCap::GatingCap(Module &module, std::string &capfile)
     }
   }
   // merge result of first round
+  // display pass_data_next, append pass_data_next to pass_data, discard pass_data_next
   if (pass_data_next.size()) {
     errs() << ANSI_COLOR(BG_WHITE, FG_RED)
            << "Inner checking functions:" << ANSI_COLOR_RESET << "\n";
@@ -140,6 +151,7 @@ GatingCap::GatingCap(Module &module, std::string &capfile)
     pass_data_next.clear();
   }
   // backward discovery and mark..
+  // refer to backward call graph slicing
 again:
   for (auto fpair : pass_data) {
     Function *func = fpair.first;
@@ -147,10 +159,14 @@ again:
     assert(cap_pos >= 0);
     // we got a capability check function or a wrapper function,
     // find all use without Constant Value and add them to wrapper
+
+    // each user u is a func callsite
+    //
     for (auto u : func->users()) {
       InstructionSet uis;
       if (Instruction *i = dyn_cast<Instruction>(u))
         uis.insert(i);
+      // dunno
       else
         uis = get_user_instruction(dyn_cast<Value>(u));
       if (uis.size() == 0) {
@@ -158,10 +174,12 @@ again:
         errs() << "\n";
         continue;
       }
+      // each ui is a func callsite
       for (auto ui : uis) {
         CallInst *cs = dyn_cast<CallInst>(ui);
         if (cs == NULL)
           continue; // how come?
+        // callee is a function def, if callsite is a direct call, callee should be same as func
         Function *callee = get_callee_function_direct(cs);
         if (callee != func)
           continue;
@@ -172,6 +190,7 @@ again:
                            "Check capability parameter" ANSI_COLOR_RESET);
         }
         Value *capv = cs->getArgOperand(cap_pos);
+        // filters constant int caps; keeps passed-in caps
         if (isa<ConstantInt>(capv))
           continue;
         Function *parent_func = cs->getFunction();
@@ -199,6 +218,7 @@ again:
     }
   }
   // do this until we discovered everything
+  // forward once, backward iteratively
   if (pass_data.size())
     goto again;
 }
