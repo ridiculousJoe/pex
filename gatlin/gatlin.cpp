@@ -1530,6 +1530,7 @@ void gatlin::identify_kmi(Module &module) {
 void gatlin::preprocess(Module &module) {
   for (Module::iterator fi = module.begin(), f_end = module.end(); fi != f_end;
        ++fi) {
+    // filters a func which is assigned elsewhere; filters intrinsic llvm functions; ++ FuncCounter
     Function *func = dyn_cast<Function>(fi);
     if (func->isDeclaration()) {
       ExternalFuncCounter++;
@@ -1541,6 +1542,8 @@ void gatlin::preprocess(Module &module) {
     FuncCounter++;
 
     all_functions.insert(func);
+
+    // add func to t2fs[type]
     Type *type = func->getFunctionType();
     FunctionSet *fl = t2fs[type];
     if (fl == NULL) {
@@ -1549,9 +1552,11 @@ void gatlin::preprocess(Module &module) {
     }
     fl->insert(func);
 
+    // add syscall to syscall_list
     if (is_syscall_prefix(func->getName()))
       syscall_list.insert(func);
 
+    // inside func, add indirect calls to idcs, add direct calls with function type cast to f2csi_type0[bcf]
     for (Function::iterator fi = func->begin(), fe = func->end(); fi != fe;
          ++fi) {
       BasicBlock *bb = dyn_cast<BasicBlock>(fi);

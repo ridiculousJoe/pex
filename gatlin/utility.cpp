@@ -1121,25 +1121,31 @@ void initialize_gatlin_sets(StringRef knob_skip_func_list,
                             StringRef knob_crit_symbol,
                             StringRef knob_kernel_api) {
   llvm::errs() << "Load supplimental files...\n";
+  // init skip functions with hardcoded ones
   StringList builtin_skip_functions(std::begin(_builtin_skip_functions),
                                     std::end(_builtin_skip_functions));
+  // add passed-in skip functions
   skip_funcs = new SimpleSet(knob_skip_func_list, builtin_skip_functions);
+  // if has passed-in, print
   if (!skip_funcs->use_builtin())
     llvm::errs() << "    - Skip function list, total:" << skip_funcs->size()
                  << "\n";
 
+    // init skip vars with hardcoded ones and passed-in
   StringList builtin_skip_var(std::begin(_builtin_skip_var),
                               std::end(_builtin_skip_var));
   skip_vars = new SimpleSet(knob_skip_var_list, builtin_skip_var);
   if (!skip_vars->use_builtin())
     llvm::errs() << "    - Skip var list, total:" << skip_vars->size() << "\n";
 
+  // init crit_syms with passed-in
   StringList builtin_crit_symbol;
   crit_syms = new SimpleSet(knob_crit_symbol, builtin_crit_symbol);
   if (!crit_syms->use_builtin())
     llvm::errs() << "    - Critical symbols, total:" << crit_syms->size()
                  << "\n";
 
+  // init builtin_kapi with passed-in
   StringList builtin_kapi;
   kernel_api = new SimpleSet(knob_kernel_api, builtin_kapi);
   if (!kernel_api->use_builtin())
